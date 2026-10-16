@@ -104,6 +104,26 @@ input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid v
 .okbox{background:color-mix(in srgb,var(--ok) 12%,transparent);border:1px solid var(--ok);border-radius:6px;padding:10px 12px;font-size:14px}
 .copy{display:flex;gap:6px}
 .copy input{font-family:var(--f-num);font-size:13px}
+.vh{position:absolute!important;width:1px!important;height:1px!important;opacity:0;overflow:hidden;clip:rect(0 0 0 0);pointer-events:none}
+.pick{position:relative;overflow:hidden;text-align:center}
+.pick input[type=file]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:100px;padding:0;border:0;margin:0}
+.photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px}
+.ph{position:relative;aspect-ratio:1;border-radius:6px;overflow:hidden;border:1px solid var(--line);background:var(--field);max-width:100%}
+.ph img{width:100%;height:100%;object-fit:cover;display:block}
+.ph button{position:absolute;top:4px;right:4px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;font-size:16px;line-height:1;cursor:pointer}
+.ph span{position:absolute;left:4px;bottom:4px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;padding:1px 6px;border-radius:4px}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+.btnrow .btn{flex:1 1 140px}
+.hdr-btns{display:flex;gap:6px}
+.plist{display:grid;gap:8px}
+.pitem{border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;gap:6px}
+.pitem.cur{border-color:var(--red)}
+.pitem .t{font-weight:600;overflow-wrap:anywhere}
+.pitem .m{font-size:12.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 12px}
+.pitem .a{display:flex;gap:8px}
+.pitem .a .btn{padding:9px 10px;flex:1}
+.chip{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.3px;border-radius:999px;padding:1px 8px;background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.chip.cur{background:color-mix(in srgb,var(--red) 14%,transparent);color:var(--red-ink)}
 .toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
   background:var(--ink);color:var(--sheet);padding:9px 14px;border-radius:8px;font-size:14px;z-index:30}
 @media (prefers-reduced-motion:no-preference){.dlg .card{animation:up .18s ease-out}@keyframes up{from{transform:translateY(16px);opacity:.6}}}
@@ -122,10 +142,10 @@ input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid v
 <main class="wrap" id="form">
 
   <section class="sec">
-    <h2>Rapporto <button class="act" type="button" id="btnNew">Nuovo rapporto</button></h2>
+    <h2>Rapporto <span class="hdr-btns"><button class="act" type="button" id="btnList">In sospeso (0)</button><button class="act" type="button" id="btnNew">+ Nuovo</button></span></h2>
     <div class="body">
       <div class="g2">
-        <label class="f"><span>Rapporto n.</span><input id="rapportoNr" class="num" inputmode="numeric" placeholder="es. 26102568158"></label>
+        <label class="f"><span>Rapporto n.</span><input id="rapportoNr" class="num" readonly placeholder="Imposta la sigla in Impostazioni"></label>
         <label class="f"><span>Inizio dell'esecuzione</span><input id="inizio" type="date"></label>
       </div>
       <div class="g3">
@@ -177,7 +197,6 @@ input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid v
       </div>
       <div class="sub">Pagine aggiuntive</div>
       <div class="checks">
-        <label class="chk"><input type="checkbox" id="p_materiale">Rapporto materiale</label>
         <label class="chk"><input type="checkbox" id="p_misura">Rapporto di misura</label>
       </div>
       <div class="sub">Lavoro completato</div>
@@ -206,6 +225,18 @@ input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid v
     <div class="body">
       <label class="f" style="max-width:160px"><span>Rabatt %</span><input id="rabatt" type="number" inputmode="decimal" step="0.5" min="0" max="100" class="num"></label>
       <div class="tot" id="totBox"></div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>Foto <span class="act" id="phCount" style="cursor:default">0</span></h2>
+    <div class="body">
+      <div class="btnrow">
+        <div class="btn pri pick">Scatta foto<input id="phCam" type="file" accept="image/*" capture="environment" aria-label="Scatta foto"></div>
+        <div class="btn pick">Dalla galleria<input id="phGal" type="file" accept="image/*" multiple aria-label="Scegli foto dalla galleria"></div>
+      </div>
+      <div class="photos" id="phList"></div>
+      <p class="note" style="margin:0">Le foto vengono allegate alla mail insieme al PDF, non entrano nel rapporto.</p>
     </div>
   </section>
 
@@ -256,8 +287,13 @@ input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid v
 <div class="dlg" id="dlgSet" hidden>
   <div class="card" role="dialog" aria-labelledby="hSet">
     <h3 id="hSet">Impostazioni</h3>
-    <p class="note" style="margin:0">Salvate solo su questo telefono. Da fare una volta sola.</p>
+    <p class="note" style="margin:0">Salvate solo su questo telefono. Da fare una volta sola. · <b>Versione 1.5</b></p>
     <label class="f"><span>Il mio nome (Compilato da)</span><input id="s_nome" list="dlInst"></label>
+    <div class="g2">
+      <label class="f"><span>Sigla operaio</span><input id="s_sigla" class="num" maxlength="4" autocapitalize="characters" placeholder="es. DB"></label>
+      <label class="f"><span>Prossimo numero</span><input id="s_next" class="num" type="number" inputmode="numeric" min="1" step="1"></label>
+    </div>
+    <p class="note" style="margin:0" id="s_prev">Formato: ER-anno-sigla-numero</p>
     <label class="f"><span>E-mail ufficio (copia dei rapporti)</span><input id="s_ufficio" type="email" inputmode="email"></label>
     <label class="f"><span>Numero progetto predefinito</span><input id="s_progetto" class="num"></label>
     <label class="f"><span>Soggetto predefinito</span><input id="s_soggetto"></label>
@@ -270,15 +306,13 @@ input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid v
   </div>
 </div>
 
-<!-- Conferma nuovo -->
-<div class="dlg" id="dlgNew" hidden>
-  <div class="card" role="dialog" aria-labelledby="hNew">
-    <h3 id="hNew">Iniziare un nuovo rapporto?</h3>
-    <p style="margin:0">I dati del rapporto attuale vengono cancellati da questo telefono.</p>
-    <div style="display:flex;gap:8px">
-      <button class="btn" type="button" data-close>Annulla</button>
-      <button class="btn pri" type="button" id="btnNewOk">Nuovo rapporto</button>
-    </div>
+<!-- Rapporti in sospeso -->
+<div class="dlg" id="dlgList" hidden>
+  <div class="card" role="dialog" aria-labelledby="hList">
+    <h3 id="hList">Rapporti in sospeso</h3>
+    <p class="note" style="margin:0">Salvati su questo telefono, foto e firma comprese. Aprine uno per continuarlo e inviarlo.</p>
+    <div class="plist" id="pList"></div>
+    <button class="btn" type="button" data-close>Chiudi</button>
   </div>
 </div>
 
@@ -701,7 +735,7 @@ const CONFIG = {
   soggetto: '00_BU15368',
   catturatoDa: 'GiuZoc',
   prezzi: false,               // true = prezzi e totali visibili di default
-  installatori: ['Daniil Brianza','Sebastian Knupfer','Sebastiano Gagliano','Lorenzo Consonni'],
+  installatori: ['Daniil Brianza','Sebastian Knupfer','Sebastiano Gagliano','Amos Zanetti','Gianluca Asnaghi','Lorenzo Consonni'],
   materialiFissi: [
     { desc:'Piccolo materiale per ora di lavoro a regia', art:'511145001' },
     { desc:'Messa a disposizione di veicolo di servizio clienti, per ora', art:'511222201' }
@@ -723,12 +757,12 @@ const n = v => { const x = parseFloat(String(v??'').replace(',','.')); return is
 const chf = v => v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,"'");
 const esc = s => String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
-let S = Object.assign({ nome:'', ufficio:CONFIG.emailUfficio, progetto:CONFIG.progetto, soggetto:CONFIG.soggetto,
+let S = Object.assign({ sigla:'', nome:'', ufficio:CONFIG.emailUfficio, progetto:CONFIG.progetto, soggetto:CONFIG.soggetto,
   catturato:CONFIG.catturatoDa, prezzi:CONFIG.prezzi }, store.get(KS)||{});
 
 const FIELDS = ['rapportoNr','inizio','progetto','psp','vostroOrdine','soggetto','luogo','ordinante','fattura','descrizione',
   'catturatoDa','ordinatoDa','rilasciatoIl','contatto','richTel','ora','data','compilatoDa','firmatario','rabatt','mailCliente'];
-const CHECKS = ['t_guardia','t_regia','t_estensione','t_manutenzione','t_garanzia','t_prezzo','p_materiale','p_misura','finito'];
+const CHECKS = ['t_guardia','t_regia','t_estensione','t_manutenzione','t_garanzia','t_prezzo','p_misura','finito'];
 
 let ore = [], mat = [], sigData = null;
 
@@ -748,16 +782,19 @@ function renderOre(){
     </div>`).join('');
   calc();
 }
+const AUTO_ART='511145001';
+const isAuto=r=>r.fisso && r.art===AUTO_ART;
 function renderMat(){
   const p = S.prezzi;
+  mat.forEach(r=>{ if(isAuto(r)) r.qta=fmtQ(totOre()); });
   $('#matList').innerHTML = mat.map((r,i)=>`
     <div class="row r-mat${p?' p':''}">
       ${r.fisso?'':`<button class="del" type="button" data-del-mat="${i}" aria-label="Rimuovi riga">×</button>`}
       <label class="f w2 pad"><span>Descrizione</span><input data-m="${i}" data-k="desc" value="${esc(r.desc)}" ${r.fisso?'readonly':''}></label>
       <label class="f"><span>Articolo n°</span><input class="num" data-m="${i}" data-k="art" value="${esc(r.art)}" ${r.fisso?'readonly':''}></label>
-      <label class="f"><span>Quantità</span><input class="num" type="number" inputmode="decimal" step="0.25" min="0" data-m="${i}" data-k="qta" value="${esc(r.qta)}"></label>
+      <label class="f"><span>Quantità${isAuto(r)?' (auto)':''}</span><input class="num" type="number" inputmode="decimal" step="0.25" min="0" data-m="${i}" data-k="qta" value="${esc(r.qta)}" ${isAuto(r)?'readonly tabindex="-1"':''}></label>
       ${p?`<label class="f"><span>Prezzo</span><input class="num" type="number" inputmode="decimal" step="0.05" data-m="${i}" data-k="prezzo" value="${esc(r.prezzo)}"></label>`:''}
-      ${r.fisso?`<button type="button" class="mini w2" data-fill-ore="${i}">↳ Quantità = ore totali</button>`:''}
+      ${isAuto(r)?`<span class="note w2">Somma automatica delle ore totali</span>`:(r.fisso?`<button type="button" class="mini w2" data-fill-ore="${i}">↳ Quantità = ore totali</button>`:'')}
     </div>`).join('');
   calc();
 }
@@ -774,6 +811,7 @@ document.addEventListener('click', e=>{
   if(t.dataset.delOre!==undefined){ ore.splice(+t.dataset.delOre,1); renderOre(); saveDraft(); }
   if(t.dataset.delMat!==undefined){ mat.splice(+t.dataset.delMat,1); renderMat(); saveDraft(); }
   if(t.dataset.fillOre!==undefined){ mat[+t.dataset.fillOre].qta = String(totOre()); renderMat(); saveDraft(); }
+  if(t.dataset.delPh!==undefined){ const [p]=photos.splice(+t.dataset.delPh,1); p&&URL.revokeObjectURL(p.url); renderPhotos(); saveNow(); }
   if(t.dataset.copy){ const [a,b]=t.dataset.copy.split(':'); $('#'+b).value=$('#'+a).value; saveDraft(); }
   if(t.hasAttribute('data-close')) t.closest('.dlg').hidden=true;
 });
@@ -787,8 +825,10 @@ function totals(){
   const sub = lav+mt, rb = sub*n($('#rabatt').value)/100;
   return {lav,mt,sub,rb,net:sub-rb};
 }
+const fmtQ=v=>v?String(Math.round(v*100)/100):'';
 function calc(){
   $('#oreTot').textContent = totOre().toFixed(2)+' h';
+  mat.forEach((r,i)=>{ if(isAuto(r)){ r.qta=fmtQ(totOre()); const el=document.querySelector(`[data-m="${i}"][data-k="qta"]`); if(el && el.value!==r.qta) el.value=r.qta; } });
   $('#secTot').hidden = !S.prezzi;
   if(!S.prezzi) return;
   const t=totals();
@@ -802,20 +842,129 @@ function collect(){
   const d={}; FIELDS.forEach(f=>d[f]=$('#'+f).value); CHECKS.forEach(c=>d[c]=$('#'+c).checked);
   d.ore=ore; d.mat=mat; d.sig=sigData; return d;
 }
-function saveDraft(){ store.set(KD, collect()); }
+/* ---------- numerazione ER-anno-sigla-n ---------- */
+const KN='etavisRapporto.counter';
+const yearNow=()=>String(new Date().getFullYear());
+function counter(){ const c=store.get(KN)||{}; const y=yearNow(); if(!c[y]) c[y]=1; return {c,y}; }
+function peekNr(){ const {c,y}=counter(); return c[y]; }
+function nextNr(){ if(!S.sigla) return ''; const {c,y}=counter(); const nr=`ER-${y}-${S.sigla}-${c[y]}`; c[y]++; store.set(KN,c); return nr; }
+function releaseNr(nr){ const m=/^ER-(\d{4})-[A-Z0-9]+-(\d+)$/.exec(nr||''); if(!m) return; const c=store.get(KN)||{}; if(c[m[1]]===+m[2]+1){ c[m[1]]=+m[2]; store.set(KN,c); } }
+function ensureNr(){ if(!$('#rapportoNr').value){ const nr=nextNr(); if(nr){ $('#rapportoNr').value=nr; saveDraft(); } } }
+const initials=n=>String(n||'').trim().split(/\s+/).map(w=>w[0]||'').join('').toUpperCase().replace(/[^A-Z]/g,'').slice(0,4);
+
+/* ---------- archivio rapporti (IndexedDB) ---------- */
+const DB = (()=>{
+  let dbp=null;
+  const open=()=> dbp ||= new Promise((res,rej)=>{ const r=indexedDB.open('etavisRapporto',1);
+    r.onupgradeneeded=()=>r.result.createObjectStore('reports',{keyPath:'id'});
+    r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); });
+  const tx=async(mode,fn)=>{ const db=await open(); return new Promise((res,rej)=>{ const t=db.transaction('reports',mode); const st=t.objectStore('reports'); let out; Promise.resolve(fn(st)).then(v=>out=v); t.oncomplete=()=>res(out); t.onerror=()=>rej(t.error); }); };
+  const req=r=>new Promise((res,rej)=>{ r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); });
+  return {
+    put:rec=>tx('readwrite',st=>{ st.put(rec); }),
+    get:id=>tx('readonly',st=>req(st.get(id))),
+    del:id=>tx('readwrite',st=>{ st.delete(id); }),
+    all:()=>tx('readonly',st=>req(st.getAll()))
+  };
+})();
+const KC='etavisRapporto.current';
+let curId=null, photos=[], saveT=null, dbOk=true;
+const newId=()=>'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+function saveDraft(){ clearTimeout(saveT); saveT=setTimeout(saveNow, 350); }
+async function saveNow(){
+  clearTimeout(saveT); if(!curId) return;
+  const rec={id:curId, updated:Date.now(), data:collect(), photos:photos.map(p=>({id:p.id,name:p.name,blob:p.blob}))};
+  try{ await DB.put(rec); }catch(e){ dbOk=false; store.set(KD, rec.data); }
+  refreshCount();
+}
+function isEmpty(d,ph){ return !d.luogo.trim() && !d.descrizione.trim() && !d.firmatario.trim() && !d.sig && !(ph||[]).length && !totOreOf(d); }
+async function refreshCount(){
+  try{ const all=await DB.all(); const n=all.filter(r=>!isEmpty(r.data,r.photos)).length; $('#btnList').textContent=`In sospeso (${n})`; }catch(e){}
+}
 function fresh(){
   FIELDS.forEach(f=>$('#'+f).value=''); CHECKS.forEach(c=>$('#'+c).checked=false);
   $('#progetto').value=S.progetto; $('#soggetto').value=S.soggetto; $('#catturatoDa').value=S.catturato;
   $('#data').value=today(); $('#inizio').value=today(); $('#compilatoDa').value=S.nome; $('#t_regia').checked=true;
   ore=[{nome:S.nome,data:today(),ore:'',art:'',prezzo:''}];
   mat=CONFIG.materialiFissi.map(m=>({desc:m.desc,art:m.art,qta:'',prezzo:'',fisso:true}));
-  sig.clear(); renderOre(); renderMat(); saveDraft();
+  sig.clear(); setPhotos([]); renderOre(); renderMat();
+  curId=newId(); store.set(KC,curId); ensureNr(); saveNow();
 }
 function load(d){
   FIELDS.forEach(f=>$('#'+f).value=d[f]??''); CHECKS.forEach(c=>$('#'+c).checked=!!d[c]);
   ore=d.ore||[]; mat=d.mat||[]; renderOre(); renderMat();
   if(d.sig) sig.load(d.sig); else sig.clear();
 }
+async function openReport(id){
+  await saveNow();
+  const r=await DB.get(id); if(!r) return;
+  curId=id; store.set(KC,id); load(r.data); sigData=r.data.sig||null; ensureNr();
+  setPhotos((r.photos||[]).map(p=>({...p})));
+  refreshCount();
+}
+async function newReport(){
+  await saveNow();
+  const prev=collect(), hadContent=!isEmpty(prev,photos), prevId=curId;
+  if(!hadContent && prevId){ try{ await DB.del(prevId); }catch(e){} releaseNr(prev.rapportoNr); }
+  fresh(); window.scrollTo(0,0);
+  toast(hadContent?'Rapporto precedente messo in sospeso':'Nuovo rapporto pronto');
+}
+
+/* ---------- foto ---------- */
+function setPhotos(list){
+  photos.forEach(p=>p.url&&URL.revokeObjectURL(p.url));
+  photos=list; photos.forEach(p=>p.url=URL.createObjectURL(p.blob)); renderPhotos();
+}
+function renderPhotos(){
+  $('#phCount').textContent=photos.length;
+  $('#phList').innerHTML=photos.map((p,i)=>`<div class="ph"><img src="${p.url}" alt="Foto ${i+1}"><span>${i+1}</span><button type="button" data-del-ph="${i}" aria-label="Elimina foto ${i+1}">×</button></div>`).join('');
+}
+async function shrink(file){
+  const MAX=1600;
+  let src; try{ src=await createImageBitmap(file,{imageOrientation:'from-image'}); }
+  catch(e){ src=await new Promise((res,rej)=>{ const u=URL.createObjectURL(file); const im=new Image(); im.onload=()=>{ URL.revokeObjectURL(u); res(im); }; im.onerror=()=>{ URL.revokeObjectURL(u); rej(new Error('decode')); }; im.src=u; }); }
+  const w=src.width, h=src.height, k=Math.min(1, MAX/Math.max(w,h));
+  const c=document.createElement('canvas'); c.width=Math.round(w*k); c.height=Math.round(h*k);
+  c.getContext('2d').drawImage(src,0,0,c.width,c.height);
+  return await new Promise(res=>c.toBlob(b=>res(b||file),'image/jpeg',.82));
+}
+async function addFiles(fl){
+  const files=[...fl].filter(f=>!f.type || f.type.startsWith('image/')); if(!files.length){ toast('Nessuna foto selezionata'); return; }
+  toast(files.length>1?`Elaboro ${files.length} foto…`:'Elaboro la foto…');
+  let ko=0;
+  for(const f of files){
+    let b; try{ b=await shrink(f); }catch(e){ b=null; }
+    if(!b || !b.size){ if(f.size){ b=f; } else { ko++; continue; } }
+    const p={id:newId(),name:'foto.jpg',blob:b}; p.url=URL.createObjectURL(b); photos.push(p);
+  }
+  renderPhotos(); await saveNow();
+  toast(ko ? `${ko} foto non leggibili` : (files.length>1?`${files.length} foto aggiunte`:'Foto aggiunta'));
+}
+['#phCam','#phGal'].forEach(s=>$(s).addEventListener('change',e=>{ const fl=[...e.target.files]; e.target.value=''; addFiles(fl); }));
+const photoFiles=d=>photos.map((p,i)=>new File([p.blob], `${fileName(d).replace('.pdf','')}_foto${i+1}.jpg`, {type:'image/jpeg'}));
+
+/* ---------- lista in sospeso ---------- */
+async function renderList(){
+  await saveNow();
+  let all=[]; try{ all=await DB.all(); }catch(e){}
+  all=all.filter(r=>r.id===curId || !isEmpty(r.data,r.photos)).sort((a,b)=>b.updated-a.updated);
+  const fmtT=t=>{ const d=new Date(t); return d.toLocaleDateString('it-CH')+' '+d.toLocaleTimeString('it-CH',{hour:'2-digit',minute:'2-digit'}); };
+  $('#pList').innerHTML = all.length ? all.map(r=>{ const d=r.data, cur=r.id===curId;
+    const title=(d.luogo||'').split('\n')[0].trim() || 'Senza luogo';
+    return `<div class="pitem${cur?' cur':''}">
+      <div class="t">${esc(title)} ${cur?'<span class="chip cur">Aperto ora</span>':'<span class="chip">In sospeso</span>'}</div>
+      <div class="m"><span>${d.rapportoNr?'N. '+esc(d.rapportoNr):'Senza numero'}</span><span>${totOreOf(d).toFixed(2)} h</span><span>${(r.photos||[]).length} foto</span><span>${d.sig?'Firmato':'Non firmato'}</span><span>Modificato ${fmtT(r.updated)}</span></div>
+      <div class="a">${cur?'':`<button class="btn pri" type="button" data-open="${r.id}">Apri</button>`}<button class="btn" type="button" data-askdel="${r.id}">Elimina</button></div>
+    </div>`; }).join('') : '<p class="note" style="margin:0">Nessun rapporto salvato.</p>';
+}
+$('#btnList').onclick=async()=>{ await renderList(); $('#dlgList').hidden=false; };
+$('#pList').addEventListener('click', async e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  if(b.dataset.open){ await openReport(b.dataset.open); $('#dlgList').hidden=true; window.scrollTo(0,0); toast('Rapporto riaperto'); }
+  else if(b.dataset.askdel){ b.textContent='Conferma eliminazione'; b.classList.add('pri'); b.dataset.del=b.dataset.askdel; delete b.dataset.askdel; }
+  else if(b.dataset.del){ const id=b.dataset.del; try{ const rr=await DB.get(id); rr&&releaseNr(rr.data.rapportoNr); await DB.del(id); }catch(e){}
+    if(id===curId){ fresh(); } await renderList(); refreshCount(); toast('Rapporto eliminato'); }
+});
 
 /* ---------- firma ---------- */
 const sig = (()=>{
@@ -898,7 +1047,7 @@ function buildPDF(d){
   const cx3=[0,26.5,43];
   checks.forEach(row=>{ row.forEach(([t,id],j)=>cb(rx+1+cx3[j], yy+1, t, d[id])); yy+=5.5; });
   band(rx,yy-1,rw,'Pagine aggiuntive:',5); yy+=8.5;
-  cb(rx+1,yy,'Rapporto materiale',d.p_materiale); cb(rx+1+rw/2,yy,'Rapporto di misura',d.p_misura); yy+=3;
+  cb(rx+1,yy,'Rapporto di misura',d.p_misura); yy+=3;
   band(rx,yy,rw,'Lavoro completato:',5); yy+=9.5; cb(rx+1,yy,'Lavoro finito',d.finito);
   y+=dh+3;
 
@@ -961,6 +1110,7 @@ $('#btnPdf').onclick=()=>{
 /* ---------- invio ---------- */
 function validate(d, dest){
   const e=[];
+  if(!d.rapportoNr.trim()) e.push('Numero rapporto (imposta la sigla in Impostazioni)');
   if(!d.luogo.trim()) e.push('Luogo di esecuzione');
   if(!d.descrizione.trim()) e.push('Descrizione dei lavori');
   if(!totOreOf(d)) e.push('Ore lavorate (almeno una riga)');
@@ -994,41 +1144,54 @@ $('#btnGo').onclick=async()=>{
     : `Rapporto${d.rapportoNr?' n. '+d.rapportoNr:''} del ${fmtD(d.data)}\nLuogo: ${luogo1}\nOre totali: ${totOreOf(d).toFixed(2)}\nCompilato da: ${d.compilatoDa}\nFirmato da: ${d.firmatario}`);
   const recip = cc ? `${to}, ${cc}` : to;
   const file = new File([blob], name, {type:'application/pdf'});
+  const pf = photoFiles(d), all=[file, ...pf];
   let shared=false;
-  if(navigator.canShare && navigator.canShare({files:[file]})){
+  if(navigator.canShare && navigator.canShare({files:all})){
     try{ await navigator.clipboard?.writeText(recip); }catch(e){}
-    try{ await navigator.share({files:[file], title:subject, text:body}); shared=true; }
+    try{ await navigator.share({files:all, title:subject, text:body}); shared=true; }
     catch(e){ if(e.name==='AbortError'){ return; } }
   }
   if(!shared){
     download(blob, name);
+    pf.forEach((f,i)=>setTimeout(()=>download(f,f.name), 300*(i+1)));
     const href=`mailto:${encodeURIComponent(to)}?${cc?'cc='+encodeURIComponent(cc)+'&':''}subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     setTimeout(()=>{ location.href=href; }, 600);
   }
-  $('#sendDone').innerHTML = `<div class="okbox"><b>${shared?'PDF passato all\'app di posta.':'PDF scaricato, mail aperta.'}</b><br>
-    ${shared?'Scegli Outlook o Mail, incolla i destinatari nel campo <b>A</b> e invia.':'Allega il PDF scaricato (<b>'+esc(name)+'</b>) e invia.'}</div>
+  $('#sendDone').innerHTML = `<div class="okbox"><b>${shared?'PDF'+(pf.length?' e '+pf.length+' foto passati':' passato')+' all\'app di posta.':'File scaricati, mail aperta.'}</b><br>
+    ${shared?'Scegli Outlook o Mail, incolla i destinatari nel campo <b>A</b> e invia.':'Allega il PDF (<b>'+esc(name)+'</b>)'+(pf.length?' e le '+pf.length+' foto':'')+' e invia.'}</div>
     <label class="f"><span>Destinatari</span><div class="copy"><input readonly value="${esc(recip)}" id="recipBox"><button class="iconbtn" type="button" id="cpRecip">Copia</button></div></label>
-    <button class="btn" type="button" id="btnAfterNew" style="width:100%">Rapporto inviato · Nuovo rapporto</button>`;
+    <button class="btn pri" type="button" id="btnAfterNew" style="width:100%">Inviato: chiudi e nuovo rapporto</button>
+    <p class="note" style="margin:0">Se l'invio non è andato a buon fine chiudi questa finestra: il rapporto resta in sospeso.</p>`;
   $('#sendDone').hidden=false;
   $('#cpRecip').onclick=async()=>{ try{ await navigator.clipboard.writeText(recip); toast('Destinatari copiati'); }catch(e){ $('#recipBox').select(); } };
-  $('#btnAfterNew').onclick=()=>{ $('#dlgSend').hidden=true; fresh(); window.scrollTo(0,0); toast('Nuovo rapporto pronto'); };
+  $('#btnAfterNew').onclick=async()=>{ $('#dlgSend').hidden=true; const id=curId; try{ await DB.del(id); }catch(e){} fresh(); window.scrollTo(0,0); toast('Rapporto chiuso, nuovo rapporto pronto'); };
 };
 
 /* ---------- impostazioni / nuovo ---------- */
-$('#btnSet').onclick=()=>{ $('#s_nome').value=S.nome; $('#s_ufficio').value=S.ufficio; $('#s_progetto').value=S.progetto; $('#s_soggetto').value=S.soggetto; $('#s_catturato').value=S.catturato; $('#s_prezzi').checked=S.prezzi; $('#dlgSet').hidden=false; };
+$('#btnSet').onclick=()=>{ $('#s_nome').value=S.nome; $('#s_sigla').value=S.sigla||initials(S.nome); $('#s_next').value=peekNr(); setPrev(); $('#s_ufficio').value=S.ufficio; $('#s_progetto').value=S.progetto; $('#s_soggetto').value=S.soggetto; $('#s_catturato').value=S.catturato; $('#s_prezzi').checked=S.prezzi; $('#dlgSet').hidden=false; };
+function setPrev(){ const sg=($('#s_sigla').value||'').toUpperCase().replace(/[^A-Z0-9]/g,''); $('#s_prev').textContent = sg ? `Prossimo rapporto: ER-${yearNow()}-${sg}-${Math.max(1,parseInt($('#s_next').value)||1)}` : 'Inserisci la sigla (es. iniziali) per numerare i rapporti.'; }
+['#s_sigla','#s_next'].forEach(x=>$(x).addEventListener('input',setPrev));
+$('#s_nome').addEventListener('input',()=>{ if(!S.sigla && !$('#s_sigla').dataset.touched){ $('#s_sigla').value=initials($('#s_nome').value); setPrev(); } });
+$('#s_sigla').addEventListener('input',()=>{ $('#s_sigla').dataset.touched='1'; });
 $('#btnSaveSet').onclick=()=>{
-  S={nome:$('#s_nome').value.trim(), ufficio:$('#s_ufficio').value.trim(), progetto:$('#s_progetto').value.trim(), soggetto:$('#s_soggetto').value.trim(), catturato:$('#s_catturato').value.trim(), prezzi:$('#s_prezzi').checked};
+  const nx=Math.max(1,parseInt($('#s_next').value)||1); const {c,y}=counter(); c[y]=nx; store.set(KN,c);
+  S={sigla:($('#s_sigla').value||'').toUpperCase().replace(/[^A-Z0-9]/g,''), nome:$('#s_nome').value.trim(), ufficio:$('#s_ufficio').value.trim(), progetto:$('#s_progetto').value.trim(), soggetto:$('#s_soggetto').value.trim(), catturato:$('#s_catturato').value.trim(), prezzi:$('#s_prezzi').checked};
   store.set(KS,S); if(!$('#compilatoDa').value) $('#compilatoDa').value=S.nome;
-  ore.forEach(r=>{ if(!r.nome) r.nome=S.nome; });
+  ore.forEach(r=>{ if(!r.nome) r.nome=S.nome; }); ensureNr();
   renderOre(); renderMat(); $('#dlgSet').hidden=true; saveDraft(); toast('Impostazioni salvate');
 };
-$('#btnNew').onclick=()=>{ $('#dlgNew').hidden=false; };
-$('#btnNewOk').onclick=()=>{ $('#dlgNew').hidden=true; fresh(); window.scrollTo(0,0); };
+$('#btnNew').onclick=newReport;
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden') saveNow(); });
+window.addEventListener('pagehide',()=>saveNow());
 
 /* ---------- avvio ---------- */
 sig.size();
-const draft=store.get(KD);
-if(draft) load(draft); else fresh();
+(async()=>{
+  const id=store.get(KC); let r=null;
+  try{ if(id) r=await DB.get(id); }catch(e){ dbOk=false; }
+  if(r){ curId=id; load(r.data); sigData=r.data.sig||null; setPhotos((r.photos||[]).map(p=>({...p}))); ensureNr(); refreshCount(); }
+  else { const old=store.get(KD); fresh(); if(old){ load(old); sigData=old.sig||null; store.del(KD); saveNow(); } }
+})();
 if(!store.get(KS)) setTimeout(()=>$('#btnSet').click(), 300);
 </script>
 </body>
