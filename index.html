@@ -107,6 +107,12 @@ input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid v
 .vh{position:absolute!important;width:1px!important;height:1px!important;opacity:0;overflow:hidden;clip:rect(0 0 0 0);pointer-events:none}
 .pick{position:relative;overflow:hidden;text-align:center}
 .pick input[type=file]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:100px;padding:0;border:0;margin:0}
+.r-pp{grid-template-columns:repeat(4,1fr)}
+.r-pp .c4{grid-column:span 2}.r-pp .c2{grid-column:span 1}
+@media (max-width:620px){.r-pp{grid-template-columns:1fr 1fr}.r-pp .c4{grid-column:1/-1}.r-pp .c2{grid-column:auto}.r-pp .sn{grid-column:1/-1}}
+.modlinks{display:flex;gap:8px;flex-wrap:wrap}
+.modlinks a{flex:1 1 140px;text-align:center;text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:10px;color:var(--ink);font-weight:600}
+.modlinks a.on{border-color:var(--red);color:var(--red-ink)}
 .photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px}
 .ph{position:relative;aspect-ratio:1;border-radius:6px;overflow:hidden;border:1px solid var(--line);background:var(--field);max-width:100%}
 .ph img{width:100%;height:100%;object-fit:cover;display:block}
@@ -142,7 +148,7 @@ input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid v
 <main class="wrap" id="form">
 
   <section class="sec">
-    <h2>Rapporto <span class="hdr-btns"><button class="act" type="button" id="btnList">In sospeso (0)</button><button class="act" type="button" id="btnNew">+ Nuovo</button></span></h2>
+    <h2><span id="hTitle">Rapporto</span> <span class="hdr-btns"><button class="act" type="button" id="btnList">In sospeso (0)</button><button class="act" type="button" id="btnNew">+ Nuovo</button></span></h2>
     <div class="body">
       <div class="g2">
         <label class="f"><span>Rapporto n.</span><input id="rapportoNr" class="num" readonly placeholder="Imposta la sigla in Impostazioni"></label>
@@ -220,6 +226,14 @@ input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid v
     </div>
   </section>
 
+  <section class="sec" id="secPompe" hidden>
+    <h2>Dati pompe <span class="act" id="ppCount" style="cursor:default">0</span></h2>
+    <div class="body">
+      <div id="ppList" style="display:grid;gap:8px"></div>
+      <button type="button" class="add" id="addPp">+ Aggiungi pompa</button>
+    </div>
+  </section>
+
   <section class="sec" id="secTot" hidden>
     <h2>Totali (CHF)</h2>
     <div class="body">
@@ -287,7 +301,9 @@ input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid v
 <div class="dlg" id="dlgSet" hidden>
   <div class="card" role="dialog" aria-labelledby="hSet">
     <h3 id="hSet">Impostazioni</h3>
-    <p class="note" style="margin:0">Salvate solo su questo telefono. Da fare una volta sola. · <b>Versione 1.5</b></p>
+    <p class="note" style="margin:0">Salvate solo su questo telefono, valgono per tutti i moduli. · <b>Versione 1.7</b></p>
+    <div class="sub">Modulo</div>
+    <div class="modlinks"><a href="./" id="lnkStd">Rapporto standard</a><a href="./pompe.html" id="lnkPp">Rapporto pompe</a></div>
     <label class="f"><span>Il mio nome (Compilato da)</span><input id="s_nome" list="dlInst"></label>
     <div class="g2">
       <label class="f"><span>Sigla operaio</span><input id="s_sigla" class="num" maxlength="4" autocapitalize="characters" placeholder="es. DB"></label>
@@ -745,7 +761,10 @@ const CONFIG = {
 /* ======================================================================== */
 
 const $ = s => document.querySelector(s);
-const KS = 'etavisRapporto.settings', KD = 'etavisRapporto.draft';
+const VAR = 'standard';            // 'standard' | 'pompe' (impostato in fase di build)
+const PP = VAR==='pompe';
+const NS = PP ? 'etavisRapportoPompe' : 'etavisRapporto';
+const KS = 'etavisRapporto.settings', KD = NS+'.draft';
 const store = {
   get(k){ try{ return JSON.parse(localStorage.getItem(k)) }catch(e){ return null } },
   set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)) }catch(e){} },
@@ -764,7 +783,7 @@ const FIELDS = ['rapportoNr','inizio','progetto','psp','vostroOrdine','soggetto'
   'catturatoDa','ordinatoDa','rilasciatoIl','contatto','richTel','ora','data','compilatoDa','firmatario','rabatt','mailCliente'];
 const CHECKS = ['t_guardia','t_regia','t_estensione','t_manutenzione','t_garanzia','t_prezzo','p_misura','finito'];
 
-let ore = [], mat = [], sigData = null;
+let ore = [], mat = [], pompe = [], sigData = null;
 
 $('#dlInst').innerHTML = CONFIG.installatori.map(x=>`<option value="${esc(x)}">`).join('');
 
@@ -802,6 +821,7 @@ document.addEventListener('input', e=>{
   const t=e.target;
   if(t.dataset.o!==undefined){ ore[t.dataset.o][t.dataset.k]=t.value; calc(); }
   else if(t.dataset.m!==undefined){ mat[t.dataset.m][t.dataset.k]=t.value; calc(); }
+  else if(t.dataset.pp!==undefined){ pompe[t.dataset.pp][t.dataset.k]=t.value; }
   else if(t.id==='rabatt') calc();
   saveDraft();
 });
@@ -809,6 +829,7 @@ document.addEventListener('change', saveDraft);
 document.addEventListener('click', e=>{
   const t=e.target.closest('button'); if(!t) return;
   if(t.dataset.delOre!==undefined){ ore.splice(+t.dataset.delOre,1); renderOre(); saveDraft(); }
+  if(t.dataset.delPp!==undefined){ pompe.splice(+t.dataset.delPp,1); renderPompe(); saveDraft(); }
   if(t.dataset.delMat!==undefined){ mat.splice(+t.dataset.delMat,1); renderMat(); saveDraft(); }
   if(t.dataset.fillOre!==undefined){ mat[+t.dataset.fillOre].qta = String(totOre()); renderMat(); saveDraft(); }
   if(t.dataset.delPh!==undefined){ const [p]=photos.splice(+t.dataset.delPh,1); p&&URL.revokeObjectURL(p.url); renderPhotos(); saveNow(); }
@@ -816,6 +837,25 @@ document.addEventListener('click', e=>{
   if(t.hasAttribute('data-close')) t.closest('.dlg').hidden=true;
 });
 $('#addOre').onclick=()=>{ ore.push({nome:ore.at(-1)?.nome||S.nome||'', data:$('#data').value||today(), ore:'', art:ore.at(-1)?.art||'', prezzo:ore.at(-1)?.prezzo||''}); renderOre(); saveDraft(); };
+/* ---------- pompe ---------- */
+const newPp=()=>({tipo:'',serie:'',iso:'',amp:''});
+function renderPompe(){
+  if(!PP) return;
+  $('#ppCount').textContent=pompe.length;
+  $('#ppList').innerHTML = pompe.map((r,i)=>`
+    <div class="row r-pp">
+      ${pompe.length>1?`<button class="del" type="button" data-del-pp="${i}" aria-label="Rimuovi pompa">×</button>`:''}
+      <label class="f c4 pad"><span>Pompa ${i+1} · Tipo di pompa</span><input data-pp="${i}" data-k="tipo" value="${esc(r.tipo)}" placeholder="es. Grundfos UPS 25-60"></label>
+      <label class="f c2 sn"><span>N° di serie</span><input class="num" data-pp="${i}" data-k="serie" value="${esc(r.serie)}"></label>
+      <label class="f c2"><span>Isolamento motore (MΩ)</span><input class="num" inputmode="decimal" data-pp="${i}" data-k="iso" value="${esc(r.iso)}" placeholder="es. >500"></label>
+      <label class="f c2"><span>Consumo effettivo (A)</span><input class="num" inputmode="decimal" data-pp="${i}" data-k="amp" value="${esc(r.amp)}"></label>
+    </div>`).join('');
+}
+if(PP){
+  $('#secPompe').hidden=false; $('#hTitle').textContent='Rapporto pompe';
+  $('#addPp').onclick=()=>{ pompe.push(newPp()); renderPompe(); saveDraft(); const l=document.querySelectorAll('[data-k="tipo"][data-pp]'); l[l.length-1]?.focus(); };
+}
+(PP?$('#lnkPp'):$('#lnkStd')).classList.add('on');
 $('#addMat').onclick=()=>{ mat.push({desc:'',art:'',qta:'',prezzo:''}); renderMat(); saveDraft(); };
 
 const totOre = () => ore.reduce((s,r)=>s+n(r.ore),0);
@@ -840,7 +880,7 @@ function calc(){
 /* ---------- bozza ---------- */
 function collect(){
   const d={}; FIELDS.forEach(f=>d[f]=$('#'+f).value); CHECKS.forEach(c=>d[c]=$('#'+c).checked);
-  d.ore=ore; d.mat=mat; d.sig=sigData; return d;
+  d.ore=ore; d.mat=mat; d.pompe=pompe; d.sig=sigData; return d;
 }
 /* ---------- numerazione ER-anno-sigla-n ---------- */
 const KN='etavisRapporto.counter';
@@ -855,7 +895,7 @@ const initials=n=>String(n||'').trim().split(/\s+/).map(w=>w[0]||'').join('').to
 /* ---------- archivio rapporti (IndexedDB) ---------- */
 const DB = (()=>{
   let dbp=null;
-  const open=()=> dbp ||= new Promise((res,rej)=>{ const r=indexedDB.open('etavisRapporto',1);
+  const open=()=> dbp ||= new Promise((res,rej)=>{ const r=indexedDB.open(NS,1);
     r.onupgradeneeded=()=>r.result.createObjectStore('reports',{keyPath:'id'});
     r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); });
   const tx=async(mode,fn)=>{ const db=await open(); return new Promise((res,rej)=>{ const t=db.transaction('reports',mode); const st=t.objectStore('reports'); let out; Promise.resolve(fn(st)).then(v=>out=v); t.oncomplete=()=>res(out); t.onerror=()=>rej(t.error); }); };
@@ -867,7 +907,7 @@ const DB = (()=>{
     all:()=>tx('readonly',st=>req(st.getAll()))
   };
 })();
-const KC='etavisRapporto.current';
+const KC=NS+'.current';
 let curId=null, photos=[], saveT=null, dbOk=true;
 const newId=()=>'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 function saveDraft(){ clearTimeout(saveT); saveT=setTimeout(saveNow, 350); }
@@ -877,7 +917,7 @@ async function saveNow(){
   try{ await DB.put(rec); }catch(e){ dbOk=false; store.set(KD, rec.data); }
   refreshCount();
 }
-function isEmpty(d,ph){ return !d.luogo.trim() && !d.descrizione.trim() && !d.firmatario.trim() && !d.sig && !(ph||[]).length && !totOreOf(d); }
+function isEmpty(d,ph){ return !d.luogo.trim() && !d.descrizione.trim() && !d.firmatario.trim() && !d.sig && !(ph||[]).length && !totOreOf(d) && !(d.pompe||[]).some(x=>x.tipo||x.serie); }
 async function refreshCount(){
   try{ const all=await DB.all(); const n=all.filter(r=>!isEmpty(r.data,r.photos)).length; $('#btnList').textContent=`In sospeso (${n})`; }catch(e){}
 }
@@ -887,12 +927,13 @@ function fresh(){
   $('#data').value=today(); $('#inizio').value=today(); $('#compilatoDa').value=S.nome; $('#t_regia').checked=true;
   ore=[{nome:S.nome,data:today(),ore:'',art:'',prezzo:''}];
   mat=CONFIG.materialiFissi.map(m=>({desc:m.desc,art:m.art,qta:'',prezzo:'',fisso:true}));
-  sig.clear(); setPhotos([]); renderOre(); renderMat();
+  pompe = PP ? [newPp()] : [];
+  sig.clear(); setPhotos([]); renderOre(); renderMat(); renderPompe();
   curId=newId(); store.set(KC,curId); ensureNr(); saveNow();
 }
 function load(d){
   FIELDS.forEach(f=>$('#'+f).value=d[f]??''); CHECKS.forEach(c=>$('#'+c).checked=!!d[c]);
-  ore=d.ore||[]; mat=d.mat||[]; renderOre(); renderMat();
+  ore=d.ore||[]; mat=d.mat||[]; pompe=d.pompe||(PP?[newPp()]:[]); renderOre(); renderMat(); renderPompe();
   if(d.sig) sig.load(d.sig); else sig.clear();
 }
 async function openReport(id){
@@ -953,7 +994,7 @@ async function renderList(){
     const title=(d.luogo||'').split('\n')[0].trim() || 'Senza luogo';
     return `<div class="pitem${cur?' cur':''}">
       <div class="t">${esc(title)} ${cur?'<span class="chip cur">Aperto ora</span>':'<span class="chip">In sospeso</span>'}</div>
-      <div class="m"><span>${d.rapportoNr?'N. '+esc(d.rapportoNr):'Senza numero'}</span><span>${totOreOf(d).toFixed(2)} h</span><span>${(r.photos||[]).length} foto</span><span>${d.sig?'Firmato':'Non firmato'}</span><span>Modificato ${fmtT(r.updated)}</span></div>
+      <div class="m"><span>${d.rapportoNr?'N. '+esc(d.rapportoNr):'Senza numero'}</span><span>${totOreOf(d).toFixed(2)} h</span>${PP?`<span>${(d.pompe||[]).filter(x=>x.tipo).length} pompe</span>`:''}<span>${(r.photos||[]).length} foto</span><span>${d.sig?'Firmato':'Non firmato'}</span><span>Modificato ${fmtT(r.updated)}</span></div>
       <div class="a">${cur?'':`<button class="btn pri" type="button" data-open="${r.id}">Apri</button>`}<button class="btn" type="button" data-askdel="${r.id}">Elimina</button></div>
     </div>`; }).join('') : '<p class="note" style="margin:0">Nessun rapporto salvato.</p>';
 }
@@ -1008,7 +1049,7 @@ function buildPDF(d){
   doc.setFillColor(...RED); doc.rect(cx-1.1,cy-2.6,2.2,2,'F'); doc.line(cx,cy-2.2,cx,cy+.2);
   doc.setFontSize(9.5); doc.setTextColor(95,104,115); doc.setCharSpace(.8); doc.text('ELETTRO-IMPIANTI', L, 25.5); doc.setCharSpace(0);
 
-  doc.setTextColor(20,20,20); doc.setFontSize(15); doc.text('Rapporto n.: '+(d.rapportoNr||'—'), 82, 15);
+  doc.setTextColor(20,20,20); doc.setFontSize(15); doc.text((PP?'Rapporto pompe n.: ':'Rapporto n.: ')+(d.rapportoNr||'—'), 82, 15);
   doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
   const A=CONFIG.azienda;
   doc.text([A.nome,A.via,A.citta], 82, 20); doc.text('Telefon '+A.tel, 132, 20);
@@ -1072,6 +1113,16 @@ function buildPDF(d){
     columnStyles:{0:{cellWidth:92},1:{cellWidth:28},2:{cellWidth:18,halign:'right'},3:{cellWidth:22,halign:'right'},4:{halign:'right'}}});
   y=doc.lastAutoTable.finalY+3;
 
+  if(PP){
+    const ppRows=(d.pompe||[]).filter(r=>r.tipo||r.serie||r.iso||r.amp).map((r,i)=>[String(i+1), r.tipo||'', r.serie||'', r.iso||'', r.amp||'']);
+    if(!ppRows.length) ppRows.push(['','','','','']);
+    doc.autoTable({startY:y, margin:{left:L,right:210-R}, theme:'grid', headStyles:head,
+      styles:{fontSize:8,cellPadding:1.4,lineColor:[180,186,192],lineWidth:.15,textColor:20},
+      head:[['#','Tipo di pompa','N° di serie','Isolamento motore (MOhm)','Consumo effettivo (A)']], body:ppRows,
+      columnStyles:{0:{cellWidth:7,halign:'center'},1:{cellWidth:68},2:{cellWidth:45},3:{cellWidth:33,halign:'right'},4:{halign:'right'}}});
+    y=doc.lastAutoTable.finalY+3;
+  }
+
   // Piede
   if(y>232){ doc.addPage(); y=15; }
   band(L,y,W,CONFIG.notaPiede); y+=10;
@@ -1093,7 +1144,7 @@ function totalsOf(d){
   const lav=(d.ore||[]).reduce((s,r)=>s+n(r.ore)*n(r.prezzo),0), mt=(d.mat||[]).reduce((s,r)=>s+n(r.qta)*n(r.prezzo),0);
   const sub=lav+mt, rb=sub*n(d.rabatt)/100; return {lav,mt,sub,rb,net:sub-rb};
 }
-const fileName = d => `Rapporto_${d.rapportoNr||'ETAVIS'}_${(d.data||today()).replaceAll('-','')}.pdf`;
+const fileName = d => `${PP?'Rapporto_pompe':'Rapporto'}_${d.rapportoNr||'ETAVIS'}_${(d.data||today()).replaceAll('-','')}.pdf`;
 
 function download(blob, name){
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name;
@@ -1114,6 +1165,7 @@ function validate(d, dest){
   if(!d.luogo.trim()) e.push('Luogo di esecuzione');
   if(!d.descrizione.trim()) e.push('Descrizione dei lavori');
   if(!totOreOf(d)) e.push('Ore lavorate (almeno una riga)');
+  if(PP && !(d.pompe||[]).some(x=>x.tipo.trim())) e.push('Dati pompe: tipo di pompa (almeno una)');
   if(!d.compilatoDa.trim()) e.push('Compilato da');
   if(!d.firmatario.trim()) e.push('Nome del cliente che firma');
   if(!d.sig) e.push('Firma del cliente');
@@ -1138,10 +1190,10 @@ $('#btnGo').onclick=async()=>{
   const to = dest==='both' ? d.mailCliente.trim() : S.ufficio;
   const cc = dest==='both' ? S.ufficio : '';
   const luogo1 = (d.luogo||'').split('\n')[0];
-  const subject = `Rapporto di lavoro ETAVIS n. ${d.rapportoNr||''} – ${luogo1}`.replace('n.  –','–');
+  const subject = `${PP?'Rapporto pompe':'Rapporto di lavoro'} ETAVIS n. ${d.rapportoNr||''} – ${luogo1}`.replace('n.  –','–');
   const body = (dest==='both'
-    ? `Gentile cliente,\n\nin allegato trova il rapporto di lavoro${d.rapportoNr?' n. '+d.rapportoNr:''} del ${fmtD(d.data)} relativo all'intervento presso ${luogo1}.\n\nRestiamo a disposizione per eventuali domande.\n\nCordiali saluti\n${d.compilatoDa}\nETAVIS Elettro-Impianti SA\n${CONFIG.azienda.tel} · ${CONFIG.azienda.mail}`
-    : `Rapporto${d.rapportoNr?' n. '+d.rapportoNr:''} del ${fmtD(d.data)}\nLuogo: ${luogo1}\nOre totali: ${totOreOf(d).toFixed(2)}\nCompilato da: ${d.compilatoDa}\nFirmato da: ${d.firmatario}`);
+    ? `Gentile cliente,\n\nin allegato trova il ${PP?'rapporto pompe':'rapporto di lavoro'}${d.rapportoNr?' n. '+d.rapportoNr:''} del ${fmtD(d.data)} relativo all'intervento presso ${luogo1}.\n\nRestiamo a disposizione per eventuali domande.\n\nCordiali saluti\n${d.compilatoDa}\nETAVIS Elettro-Impianti SA\n${CONFIG.azienda.tel} · ${CONFIG.azienda.mail}`
+    : `Rapporto${d.rapportoNr?' n. '+d.rapportoNr:''} del ${fmtD(d.data)}\nLuogo: ${luogo1}\nOre totali: ${totOreOf(d).toFixed(2)}\nCompilato da: ${d.compilatoDa}\nFirmato da: ${d.firmatario}${PP?'\n\nPompe:\n'+(d.pompe||[]).filter(x=>x.tipo).map((x,i)=>`${i+1}. ${x.tipo} – S/N ${x.serie||'-'} – Iso ${x.iso||'-'} MΩ – ${x.amp||'-'} A`).join('\n'):''}`);
   const recip = cc ? `${to}, ${cc}` : to;
   const file = new File([blob], name, {type:'application/pdf'});
   const pf = photoFiles(d), all=[file, ...pf];
